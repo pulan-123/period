@@ -1,0 +1,944 @@
+:root {
+    --primary: #6366f1;
+    --primary-hover: #4f46e5;
+    --accent: #f43f5e;
+    --bg-dark: rgba(15, 23, 42, 0.4);
+    --glass-bg: rgba(255, 255, 255, 0.05);
+    --glass-border: rgba(255, 255, 255, 0.15);
+    --text-main: #f8fafc;
+    --text-dim: #94a3b8;
+}
+
+* {
+    box-sizing: border-box;
+    user-select: none;
+}
+
+body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: #0f172a;
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    margin: 0;
+    padding: 40px 20px;
+    color: var(--text-main);
+    min-height: 100vh;
+}
+
+.app-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    background: var(--bg-dark);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: 40px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    padding: 40px;
+    border: 1px solid var(--glass-border);
+}
+
+.header-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 40px;
+}
+
+h1 {
+    font-size: 2.2rem;
+    font-weight: 800;
+    margin: 0;
+    letter-spacing: -0.02em;
+}
+
+.title-section h2 {
+    font-size: 0.9rem;
+    color: var(--text-dim);
+    margin-top: 5px;
+}
+
+.actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.btn-group {
+    display: flex;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 4px;
+    border-radius: 16px;
+    border: 1px solid var(--glass-border);
+}
+
+button, .bg-input-label {
+    background: transparent;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 12px;
+    color: white;
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s;
+}
+
+button:hover, .bg-input-label:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.btn-primary {
+    background: var(--primary);
+}
+
+.btn-primary:hover {
+    background: var(--primary-hover);
+}
+
+#bgInput, #ocrInput, #importFile { display: none; }
+
+.timetable-wrapper {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 24px;
+    border: 1px solid var(--glass-border);
+    overflow: hidden;
+}
+
+.timetable {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.timetable th, .timetable td {
+    padding: 15px;
+    border: 1px solid var(--glass-border);
+}
+
+.timetable th {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-dim);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+.period-col {
+    width: 80px;
+    text-align: center;
+    font-weight: 700;
+    color: var(--text-dim);
+    font-size: 0.75rem;
+}
+
+.course-cell {
+    height: 140px;
+    vertical-align: top;
+}
+
+.course-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 12px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.course-card:hover {
+    transform: scale(1.02) translateY(-2px);
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.3);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
+}
+
+.course-name {
+    font-weight: 700;
+    font-size: 0.95rem;
+}
+
+.course-location {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    margin-top: 4px;
+}
+
+.job-btn {
+    background: rgba(99, 102, 241, 0.1);
+    color: var(--primary);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    padding: 6px 12px;
+    width: 100%;
+    border-radius: 10px;
+    margin-top: 10px;
+    justify-content: center;
+}
+
+.empty-course {
+    height: 100%;
+    border: 2px dashed rgba(255, 255, 255, 0.05);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255, 255, 255, 0.1);
+    font-size: 0.75rem;
+    cursor: pointer;
+}
+
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s;
+}
+
+.modal-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.modal-container {
+    background: #1e293b;
+    width: 90%;
+    max-width: 450px;
+    border-radius: 30px;
+    border: 1px solid var(--glass-border);
+    padding: 30px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    animation: modalScale 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes modalScale {
+    from { opacity: 0; transform: scale(0.9) translateY(20px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 { 
+    margin: 0; 
+    font-size: 1.25rem; 
+    font-weight: 800;
+    background: linear-gradient(135deg, #fff 0%, #94a3b8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.job-item {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--glass-border);
+    padding: 12px 15px;
+    border-radius: 14px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.job-text {
+    font-size: 0.9rem;
+    word-break: break-word;
+    flex: 1;
+    color: #ffffff;
+}
+
+.job-text.completed {
+    text-decoration: line-through;
+    color: var(--text-dim);
+}
+
+.add-job-area {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.add-job-area input {
+    flex: 1;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 10px 15px;
+    color: white;
+    outline: none;
+}
+
+.job-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+}
+
+.job-info input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: #6366f1;
+}
+
+.close-modal {
+    background: none;
+    border: none;
+    font-size: 1.8rem;
+    line-height: 1;
+    cursor: pointer;
+    color: #7e95b0;
+    padding: 0;
+    transition: color 0.2s;
+}
+
+.close-modal:hover {
+    color: #ffffff;
+}
+
+.modal-body {
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.job-list {
+    list-style: none;
+    margin: 0 0 20px 0;
+    padding: 0;
+}
+
+.delete-job {
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    cursor: pointer;
+    color: #555;
+    padding: 4px 8px;
+    border-radius: 30px;
+    transition: all 0.2s;
+}
+
+.delete-job:hover {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.1);
+}
+
+.small-btn {
+    background: var(--primary);
+    color: white;
+    border: none;
+    padding: 0 18px;
+    border-radius: 60px;
+    font-weight: 500;
+    transition: background 0.2s;
+}
+
+.small-btn:hover {
+    background: var(--primary-hover);
+}
+
+.tip-text {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    margin-top: 12px;
+    text-align: center;
+}
+
+.btn-outline {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--glass-border);
+}
+
+.btn-outline:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.footer-note {
+    margin-top: 30px;
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    line-height: 1.8;
+}
+
+.ocr-result-modal .modal-container {
+    max-width: 600px;
+}
+
+.ocr-status {
+    text-align: center;
+    padding: 30px 0;
+    color: var(--text-dim);
+}
+
+.ocr-status .spinner {
+    display: inline-block;
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(255, 255, 255, 0.1);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-bottom: 12px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.btn-secondary {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--glass-border);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 12px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.job-item {
+    cursor: grab;
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s, box-shadow 0.3s;
+    animation: jobSlideIn 0.35s ease-out both;
+}
+
+.job-item:active { cursor: grabbing; }
+
+.job-item:nth-child(1) { animation-delay: 0.02s; }
+.job-item:nth-child(2) { animation-delay: 0.07s; }
+.job-item:nth-child(3) { animation-delay: 0.12s; }
+.job-item:nth-child(4) { animation-delay: 0.17s; }
+.job-item:nth-child(5) { animation-delay: 0.22s; }
+.job-item:nth-child(6) { animation-delay: 0.27s; }
+
+@keyframes jobSlideIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.job-item.dragging {
+    opacity: 0.35;
+    transform: scale(0.92);
+    box-shadow: 0 0 25px rgba(99, 102, 241, 0.3);
+}
+
+.job-item.fly-out {
+    animation: flyToTrash 0.4s ease-in forwards;
+}
+
+@keyframes flyToTrash {
+    0% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8) translateY(-10px); }
+    100% { opacity: 0; transform: scale(0.3) translateY(-30px); }
+}
+
+.trash-zone {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 16px;
+    margin: 14px 0;
+    border: 2px dashed rgba(239, 68, 68, 0.25);
+    border-radius: 16px;
+    color: rgba(239, 68, 68, 0.55);
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.trash-zone.visible { display: flex; }
+
+.trash-zone .trash-icon {
+    font-size: 1.6rem;
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.trash-zone.drag-over {
+    border-color: #ef4444;
+    background: rgba(239, 68, 68, 0.18);
+    color: #ef4444;
+    transform: scale(1.04);
+    box-shadow: 0 0 35px rgba(239, 68, 68, 0.25), inset 0 0 20px rgba(239, 68, 68, 0.1);
+}
+
+.trash-zone.drag-over .trash-icon {
+    transform: scale(1.4);
+    animation: trashShake 0.5s ease-in-out infinite;
+}
+
+@keyframes trashShake {
+    0%, 100% { transform: scale(1.4) rotate(0deg); }
+    15% { transform: scale(1.4) rotate(-12deg); }
+    30% { transform: scale(1.4) rotate(10deg); }
+    45% { transform: scale(1.4) rotate(-8deg); }
+    60% { transform: scale(1.4) rotate(6deg); }
+    75% { transform: scale(1.4) rotate(-3deg); }
+}
+
+.trash-zone .trash-count {
+    background: rgba(239, 68, 68, 0.2);
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.job-info input[type="checkbox"] {
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.job-info input[type="checkbox"]:checked {
+    animation: popCheck 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes popCheck {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.5); }
+    100% { transform: scale(1); }
+}
+
+.job-text {
+    transition: color 0.3s, text-decoration-color 0.3s;
+}
+
+.job-text.completed {
+    animation: strikeThrough 0.4s ease-out;
+}
+
+@keyframes strikeThrough {
+    0% { color: #ffffff; }
+    100% { color: var(--text-dim); }
+}
+
+button {
+    position: relative;
+    overflow: hidden;
+}
+
+.ripple-effect {
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.25);
+    transform: scale(0);
+    animation: ripple 0.6s ease-out;
+    pointer-events: none;
+}
+
+@keyframes ripple {
+    to { transform: scale(4); opacity: 0; }
+}
+
+.course-card {
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.3s, border-color 0.3s, box-shadow 0.3s;
+    position: relative;
+    overflow: hidden;
+}
+
+.course-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -120%;
+    width: 60%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06), transparent);
+    transform: skewX(-20deg);
+    transition: left 0.6s;
+}
+
+.course-card:hover::after {
+    left: 120%;
+}
+
+.course-card:hover {
+    transform: scale(1.03) translateY(-3px);
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.3);
+    box-shadow: 0 12px 20px -4px rgba(0, 0, 0, 0.25);
+}
+
+.empty-course {
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.empty-course:hover {
+    border-color: rgba(99, 102, 241, 0.35);
+    color: rgba(99, 102, 241, 0.55);
+    background: rgba(99, 102, 241, 0.06);
+    transform: scale(1.04);
+}
+
+.course-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.copy-course-btn {
+    background: rgba(34, 197, 94, 0.15);
+    color: #22c55e;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    padding: 6px 12px;
+    border-radius: 10px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.copy-course-btn:hover {
+    background: rgba(34, 197, 94, 0.25);
+    transform: scale(1.05);
+}
+
+.delete-course-btn {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    padding: 6px 12px;
+    border-radius: 10px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.delete-course-btn:hover {
+    background: rgba(239, 68, 68, 0.25);
+    transform: scale(1.05);
+}
+
+.course-card[draggable="true"] {
+    cursor: grab;
+}
+
+.course-card[draggable="true"]:active {
+    cursor: grabbing;
+}
+
+.course-card.dragging {
+    opacity: 0.4;
+    transform: scale(1.05);
+    box-shadow: 0 10px 25px rgba(99, 102, 241, 0.3);
+}
+
+.course-cell.drag-over {
+    background: rgba(99, 102, 241, 0.1);
+    border: 2px dashed rgba(99, 102, 241, 0.5);
+    border-radius: 16px;
+}
+
+.empty-course.drag-over {
+    background: rgba(34, 197, 94, 0.15);
+    border-color: #22c55e;
+    color: #22c55e;
+}
+
+h1 {
+    animation: titleGlow 4s ease-in-out infinite;
+}
+
+@keyframes titleGlow {
+    0%, 100% { text-shadow: 0 0 0px rgba(99, 102, 241, 0); }
+    50% { text-shadow: 0 0 25px rgba(99, 102, 241, 0.35); }
+}
+
+.job-count {
+    animation: badgePulse 3s ease-in-out infinite;
+}
+
+@keyframes badgePulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.15); }
+}
+
+.delete-particle {
+    position: fixed;
+    pointer-events: none;
+    z-index: 9999;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    animation: burstParticle 0.6s ease-out forwards;
+}
+
+@keyframes burstParticle {
+    0% { opacity: 1; transform: translate(0, 0) scale(1); }
+    100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0); }
+}
+
+.app-container {
+    animation: containerFadeIn 0.6s ease-out;
+}
+
+@keyframes containerFadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.timetable-wrapper {
+    transition: box-shadow 0.4s;
+}
+
+.timetable-wrapper:hover {
+    box-shadow: 0 0 40px rgba(99, 102, 241, 0.08);
+}
+
+.job-btn {
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.job-btn:hover {
+    transform: scale(1.05);
+    background: rgba(99, 102, 241, 0.2);
+    border-color: rgba(99, 102, 241, 0.4);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+}
+
+.course-card, .empty-course, .job-item, .ocr-course-row, .close-modal {
+    position: relative;
+    overflow: hidden;
+}
+
+.course-card:active, .empty-course:active {
+    transform: scale(0.96);
+    transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.job-item:active {
+    transform: scale(0.97);
+    transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.ocr-course-row:active {
+    transform: scale(0.98);
+    transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.timetable th:active, .period-col:active {
+    background: rgba(255, 255, 255, 0.08);
+    transition: background 0.1s;
+}
+
+.course-cell {
+    transition: background 0.2s;
+}
+
+.course-cell:active {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+input:focus, textarea:focus, select:focus {
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.4);
+    transition: box-shadow 0.25s;
+}
+
+.footer-note {
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s;
+}
+
+.footer-note:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+    body {
+        padding: 20px 10px;
+    }
+
+    .app-container {
+        padding: 20px;
+        border-radius: 24px;
+    }
+
+    .header-bar {
+        flex-direction: column;
+        gap: 15px;
+        align-items: flex-start;
+        margin-bottom: 25px;
+    }
+
+    .actions {
+        flex-wrap: wrap;
+        width: 100%;
+        gap: 8px;
+    }
+
+    .btn-group {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+
+    button, .bg-input-label {
+        padding: 8px 12px;
+        font-size: 0.8rem;
+    }
+
+    h1 {
+        font-size: 1.5rem;
+    }
+
+    .title-section h2 {
+        font-size: 0.8rem;
+    }
+
+    .timetable-wrapper {
+        border-radius: 16px;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .timetable {
+        min-width: 600px;
+    }
+
+    .timetable th, .timetable td {
+        padding: 8px;
+        font-size: 0.7rem;
+    }
+
+    .period-col {
+        width: 50px;
+        font-size: 0.65rem;
+    }
+
+    .course-cell {
+        height: 100px;
+    }
+
+    .course-card {
+        padding: 8px;
+        border-radius: 12px;
+    }
+
+    .course-name {
+        font-size: 0.75rem;
+    }
+
+    .course-location {
+        font-size: 0.65rem;
+    }
+
+    .course-actions {
+        gap: 4px;
+    }
+
+    .copy-course-btn, .delete-course-btn, .job-btn {
+        padding: 4px 6px;
+        font-size: 0.7rem;
+        border-radius: 6px;
+    }
+
+    .job-btn {
+        margin-top: 6px;
+    }
+
+    .footer-note {
+        font-size: 0.75rem;
+        padding: 15px;
+        margin-top: 20px;
+    }
+
+    .modal-container {
+        width: 95%;
+        padding: 20px;
+        border-radius: 24px;
+    }
+
+    .modal-header h3 {
+        font-size: 1.1rem;
+    }
+
+    .add-job-area {
+        flex-direction: column;
+    }
+
+    .add-job-area input {
+        width: 100%;
+    }
+
+    .add-job-area button {
+        width: 100%;
+    }
+
+    .job-item {
+        padding: 10px;
+        font-size: 0.85rem;
+    }
+}
+
+@media (max-width: 480px) {
+    body {
+        padding: 15px 8px;
+    }
+
+    .app-container {
+        padding: 15px;
+        border-radius: 20px;
+    }
+
+    h1 {
+        font-size: 1.3rem;
+    }
+
+    .timetable {
+        min-width: 500px;
+    }
+
+    .timetable th, .timetable td {
+        padding: 6px;
+        font-size: 0.65rem;
+    }
+
+    .course-cell {
+        height: 90px;
+    }
+
+    .course-card {
+        padding: 6px;
+    }
+
+    .course-actions {
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .course-actions > * {
+        width: 100%;
+    }
+}
