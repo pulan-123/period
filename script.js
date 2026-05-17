@@ -1,5 +1,5 @@
-const WEEKDAYS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
-const PERIODS = ['第1-2节', '第3-4节', '第5-6节', '第7-8节', '第9-10节'];
+const WEEKDAYS = ['周一', '周二', '周三', '周四', '周五'];
+const PERIODS = ['第1节', '第2节', '第3节', '第4节', '第5节', '第6节', '第7节', '第8节'];
 
 let timetableData = Array.from({length: WEEKDAYS.length}, () => 
     Array.from({length: PERIODS.length}, () => ({ name: '', location: '' }))
@@ -11,7 +11,8 @@ let currentDay = 0;
 let currentPeriod = 0;
 
 let draggedJobId = null;
-let dragOverTrashCount = 0;
+
+let draggedCourseInfo = null;
 
 let tempCourses = [];
 
@@ -27,8 +28,8 @@ function createRipple(event) {
     const diameter = Math.max(button.clientWidth, button.clientHeight);
     const radius = diameter / 2;
     circle.style.width = circle.style.height = `${diameter}px`;
-    circle.style.left = `${event.clientX - button.offsetLeft - radius}px`;
-    circle.style.top = `${event.clientY - button.offsetTop - radius}px`;
+    circle.style.left = `${event.clientX - button.getBoundingClientRect().left - radius}px`;
+    circle.style.top = `${event.clientY - button.getBoundingClientRect().top - radius}px`;
     circle.classList.add('ripple-effect');
     const ripple = button.getElementsByClassName('ripple-effect')[0];
     if (ripple) ripple.remove();
@@ -36,7 +37,7 @@ function createRipple(event) {
 }
 
 function createDeleteParticles(x, y) {
-    const colors = ['#ef4444', '#f97316', '#f59e0b', '#eab308'];
+    const colors = ['#fb7185', '#f97316', '#fbbf24', '#34d399', '#818cf8'];
     for (let i = 0; i < 12; i++) {
         const particle = document.createElement('div');
         particle.classList.add('delete-particle');
@@ -62,7 +63,14 @@ function loadData() {
     const savedTimetable = localStorage.getItem('timetableData');
     const savedJobs = localStorage.getItem('jobsDatabase');
     const savedBg = localStorage.getItem('backgroundImage');
-    if (savedTimetable) timetableData = JSON.parse(savedTimetable);
+    if (savedTimetable) {
+        timetableData = JSON.parse(savedTimetable);
+        if (timetableData.length !== WEEKDAYS.length || (timetableData[0] && timetableData[0].length !== PERIODS.length)) {
+            timetableData = Array.from({length: WEEKDAYS.length}, () => 
+                Array.from({length: PERIODS.length}, () => ({ name: '', location: '' }))
+            );
+        }
+    }
     if (savedJobs) jobsDatabase = JSON.parse(savedJobs);
     if (savedBg) document.body.style.backgroundImage = savedBg;
 }
@@ -91,7 +99,7 @@ function renderTimetable() {
                             <button class="copy-course-btn" data-day="${dIdx}" data-period="${pIdx}" title="复制课程">➕</button>
                             <button class="delete-course-btn" data-day="${dIdx}" data-period="${pIdx}" title="删除课程">➖</button>
                             <button class="job-btn" data-day="${dIdx}" data-period="${pIdx}">
-                                📋 作业 ${jobs.length > 0 ? `<span class="job-count">${completedCount}/${jobs.length}</span>` : '+'}
+                                📋 ${jobs.length > 0 ? `<span class="job-count">${completedCount}/${jobs.length}</span>` : '+'}
                             </button>
                         </div>
                     </div>
@@ -135,6 +143,14 @@ function attachEventListeners() {
         });
     });
     
+    document.querySelectorAll('.empty-course').forEach(cell => {
+        cell.addEventListener('click', () => {
+            const day = parseInt(cell.dataset.day);
+            const period = parseInt(cell.dataset.period);
+            addCourse(day, period);
+        });
+    });
+    
     document.querySelectorAll('.course-cell').forEach(cell => {
         cell.addEventListener('dblclick', () => {
             const day = parseInt(cell.dataset.day);
@@ -144,14 +160,79 @@ function attachEventListeners() {
     });
     
     document.querySelectorAll('.course-card[draggable="true"]').forEach(card => {
-        card.addEventListener('dragstart', handleCourseDragStart);
-        card.addEventListener('dragend', handleCourseDragEnd);
+        card.addEventListener('dragstart', (e) => {
+            draggedCourseInfo = {
+                day: parseInt(card.dataset.day),
+                period: parseInt(card.dataset.period)
+            };
+            card.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', '');
+        });
+        
+        card.addEventListener('dragend', (e) => {
+            card.classList.remove('dragging');
+            document.querySelectorAll('.course-cell').forEach(el => el.classList.remove('drag-over'));
+            document.querySelectorAll('.empty-course').forEach(el => el.classList.remove('drag-over'));
+            draggedCourseInfo = null;
+        });
     });
     
-    document.querySelectorAll('.course-cell, .empty-course').forEach(cell => {
-        cell.addEventListener('dragover', handleCourseDragOver);
-        cell.addEventListener('dragleave', handleCourseDragLeave);
-        cell.addEventListener('drop', handleCourseDrop);
+    document.querySelectorAll('.course-cell').forEach(cell => {
+        cell.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            const emptyEl = cell.querySelector('.empty-course');
+            if (emptyEl || (draggedCourseInfo && !(parseInt(cell.dataset.day) === draggedCourseInfo.day && parseInt(cell.dataset.period) === draggedCourseInfo.period))) {
+                cell.classList.add('drag-over');
+                if (emptyEl) emptyEl.classList.add('drag-over');
+            }
+        });
+        
+        cell.addEventListener('dragleave', (e) => {
+            if (!cell.contains(e.relatedTarget)) {
+                cell.classList.remove('drag-over');
+                const emptyEl = cell.querySelector('.empty-course');
+                if (emptyEl) emptyEl.classList.remove('drag-over');
+            }
+        });
+        
+        cell.addEventListener('drop', (e) => {
+            e.preventDefault();
+            cell.classList.remove('drag-over');
+            const emptyEl = cell.querySelector('.empty-course');
+            if (emptyEl) emptyEl.classList.remove('drag-over');
+            
+            if (!draggedCourseInfo) return;
+            
+            const targetDay = parseInt(cell.dataset.day);
+            const targetPeriod = parseInt(cell.dataset.period);
+            
+            if (draggedCourseInfo.day === targetDay && draggedCourseInfo.period === targetPeriod) return;
+            
+            const sourceCourse = {...timetableData[draggedCourseInfo.day][draggedCourseInfo.period]};
+            const sourceJobKey = `${draggedCourseInfo.day}-${draggedCourseInfo.period}`;
+            const sourceJobs = jobsDatabase[sourceJobKey] ? jobsDatabase[sourceJobKey].map(j => ({...j})) : null;
+            
+            const targetCourse = {...timetableData[targetDay][targetPeriod]};
+            const targetJobKey = `${targetDay}-${targetPeriod}`;
+            const targetJobs = jobsDatabase[targetJobKey] ? jobsDatabase[targetJobKey].map(j => ({...j})) : null;
+            
+            timetableData[targetDay][targetPeriod] = sourceCourse;
+            if (sourceJobs) {
+                jobsDatabase[targetJobKey] = sourceJobs;
+            } else {
+                delete jobsDatabase[targetJobKey];
+            }
+            
+            timetableData[draggedCourseInfo.day][draggedCourseInfo.period] = targetCourse;
+            if (targetJobs) {
+                jobsDatabase[sourceJobKey] = targetJobs;
+            } else {
+                delete jobsDatabase[sourceJobKey];
+            }
+            
+            saveAndRefresh();
+        });
     });
 }
 
@@ -176,72 +257,23 @@ function copyCourse(day, period) {
     alert('没有空位可以复制！');
 }
 
+function addCourse(day, period) {
+    const name = prompt('课程名称:');
+    if (name === null || name.trim() === '') return;
+    const location = prompt('上课地点:');
+    if (location !== null) {
+        timetableData[day][period] = {name: name.trim(), location: location.trim()};
+        saveAndRefresh();
+    }
+}
+
 function deleteCourse(day, period) {
-    if (!confirm('确定删除这门课程吗？相关作业也会被删除。')) return;
+    const course = timetableData[day][period];
+    if (!course.name.trim()) return;
+    if (!confirm(`确定删除「${course.name}」吗？相关作业也会被删除。`)) return;
     timetableData[day][period] = {name: '', location: ''};
     const jobKey = `${day}-${period}`;
     delete jobsDatabase[jobKey];
-    saveAndRefresh();
-}
-
-let draggedCourse = null;
-
-function handleCourseDragStart(e) {
-    draggedCourse = {
-        day: parseInt(e.target.dataset.day),
-        period: parseInt(e.target.dataset.period)
-    };
-    e.target.classList.add('dragging');
-    e.dataTransfer.effectAllowed = 'move';
-}
-
-function handleCourseDragEnd(e) {
-    e.target.classList.remove('dragging');
-    document.querySelectorAll('.course-cell, .empty-course').forEach(el => {
-        el.classList.remove('drag-over');
-    });
-    draggedCourse = null;
-}
-
-function handleCourseDragOver(e) {
-    e.preventDefault();
-    e.currentTarget.classList.add('drag-over');
-}
-
-function handleCourseDragLeave(e) {
-    e.currentTarget.classList.remove('drag-over');
-}
-
-function handleCourseDrop(e) {
-    e.preventDefault();
-    e.currentTarget.classList.remove('drag-over');
-    
-    if (!draggedCourse) return;
-    
-    const targetDay = parseInt(e.currentTarget.dataset.day);
-    const targetPeriod = parseInt(e.currentTarget.dataset.period);
-    
-    if (draggedCourse.day === targetDay && draggedCourse.period === targetPeriod) return;
-    
-    const tempCourse = {...timetableData[targetDay][targetPeriod]};
-    const tempJobKey = `${targetDay}-${targetPeriod}`;
-    const tempJobs = jobsDatabase[tempJobKey] ? [...jobsDatabase[tempJobKey]] : null;
-    
-    timetableData[targetDay][targetPeriod] = {...timetableData[draggedCourse.day][draggedCourse.period]};
-    const sourceJobKey = `${draggedCourse.day}-${draggedCourse.period}`;
-    if (jobsDatabase[sourceJobKey]) {
-        jobsDatabase[tempJobKey] = [...jobsDatabase[sourceJobKey]];
-    } else {
-        delete jobsDatabase[tempJobKey];
-    }
-    
-    timetableData[draggedCourse.day][draggedCourse.period] = tempCourse;
-    if (tempJobs) {
-        jobsDatabase[sourceJobKey] = tempJobs;
-    } else {
-        delete jobsDatabase[sourceJobKey];
-    }
-    
     saveAndRefresh();
 }
 
@@ -272,8 +304,6 @@ function openJobsModal() {
 
 function closeModal() {
     document.getElementById('jobsModal').classList.remove('active');
-    dragOverTrashCount = 0;
-    document.getElementById('trashCount').textContent = '0';
 }
 
 function renderJobs() {
@@ -289,64 +319,7 @@ function renderJobs() {
             <button class="delete-job" onclick="deleteJob('${jobKey}', ${idx}, event)">🗑️</button>
         </li>
     `).join('');
-    
-    document.querySelectorAll('.job-item[draggable="true"]').forEach(item => {
-        item.addEventListener('dragstart', handleJobDragStart);
-        item.addEventListener('dragend', handleJobDragEnd);
-    });
 }
-
-function handleJobDragStart(e) {
-    draggedJobId = e.target.dataset.id;
-    e.target.classList.add('dragging');
-    document.getElementById('trashZone').classList.add('visible');
-    e.dataTransfer.effectAllowed = 'move';
-}
-
-function handleJobDragEnd(e) {
-    e.target.classList.remove('dragging');
-    document.getElementById('trashZone').classList.remove('visible');
-    document.getElementById('trashZone').classList.remove('drag-over');
-    draggedJobId = null;
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-    const trashZone = document.getElementById('trashZone');
-    
-    trashZone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        trashZone.classList.add('drag-over');
-    });
-    
-    trashZone.addEventListener('dragleave', () => {
-        trashZone.classList.remove('drag-over');
-    });
-    
-    trashZone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        trashZone.classList.remove('drag-over');
-        if (draggedJobId) {
-            const jobKey = `${currentDay}-${currentPeriod}`;
-            const jobs = jobsDatabase[jobKey] || [];
-            const idx = jobs.findIndex(j => j.id === draggedJobId);
-            if (idx !== -1) {
-                const jobItem = document.querySelector(`.job-item[data-id="${draggedJobId}"]`);
-                if (jobItem) {
-                    const rect = jobItem.getBoundingClientRect();
-                    createDeleteParticles(rect.left + rect.width / 2, rect.top + rect.height / 2);
-                }
-                jobItem?.classList.add('fly-out');
-                setTimeout(() => {
-                    jobs.splice(idx, 1);
-                    if (jobs.length === 0) delete jobsDatabase[jobKey];
-                    saveAndRefresh();
-                    renderJobs();
-                    draggedJobId = null;
-                }, 400);
-            }
-        }
-    });
-});
 
 function addJob() {
     const input = document.getElementById('jobInput');
@@ -378,6 +351,67 @@ function deleteJob(jobKey, idx, event) {
     saveAndRefresh();
     renderJobs();
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+    const trashZone = document.getElementById('trashZone');
+    const jobList = document.getElementById('jobList');
+    
+    trashZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        trashZone.classList.add('drag-over');
+    });
+    
+    trashZone.addEventListener('dragleave', () => {
+        trashZone.classList.remove('drag-over');
+    });
+    
+    trashZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        trashZone.classList.remove('drag-over');
+        
+        if (draggedJobId) {
+            const jobKey = `${currentDay}-${currentPeriod}`;
+            const jobs = jobsDatabase[jobKey] || [];
+            const idx = jobs.findIndex(j => j.id === draggedJobId);
+            
+            if (idx !== -1) {
+                const jobItem = document.querySelector(`.job-item[data-id="${draggedJobId}"]`);
+                if (jobItem) {
+                    const rect = jobItem.getBoundingClientRect();
+                    createDeleteParticles(rect.left + rect.width / 2, rect.top + rect.height / 2);
+                    jobItem.classList.add('fly-out');
+                }
+                
+                setTimeout(() => {
+                    jobs.splice(idx, 1);
+                    if (jobs.length === 0) delete jobsDatabase[jobKey];
+                    saveAndRefresh();
+                    renderJobs();
+                    draggedJobId = null;
+                }, 400);
+            }
+        }
+    });
+    
+    jobList.addEventListener('dragstart', (e) => {
+        if (e.target.classList.contains('job-item')) {
+            draggedJobId = e.target.dataset.id;
+            e.target.classList.add('dragging');
+            document.getElementById('trashZone').classList.add('visible');
+            e.dataTransfer.effectAllowed = 'move';
+        }
+    });
+    
+    jobList.addEventListener('dragend', (e) => {
+        if (e.target.classList.contains('job-item')) {
+            e.target.classList.remove('dragging');
+            document.getElementById('trashZone').classList.remove('visible');
+            document.getElementById('trashZone').classList.remove('drag-over');
+            draggedJobId = null;
+        }
+    });
+});
 
 document.getElementById('jobInput').addEventListener('keypress', (e) => {
     if (e.key === 'Enter') addJob();
@@ -493,10 +527,6 @@ function closeTextImportModal() {
     document.getElementById('textImportModal').classList.remove('active');
 }
 
-function closeOcrResultModal() {
-    document.getElementById('ocrResultModal').classList.remove('active');
-}
-
 function importTextSchedule() {
     const text = document.getElementById('textImportArea').value.trim();
     if (!text) {
@@ -540,9 +570,7 @@ function parseTextImport(text) {
         '周二': 1, '二': 1, 'Tuesday': 1, 'Tue': 1,
         '周三': 2, '三': 2, 'Wednesday': 2, 'Wed': 2,
         '周四': 3, '四': 3, 'Thursday': 3, 'Thu': 3,
-        '周五': 4, '五': 4, 'Friday': 4, 'Fri': 4,
-        '周六': 5, '六': 5, 'Saturday': 5, 'Sat': 5,
-        '周日': 6, '日': 6, 'Sunday': 6, 'Sun': 6
+        '周五': 4, '五': 4, 'Friday': 4, 'Fri': 4
     };
     
     let currentDay = -1;
@@ -571,8 +599,8 @@ function parseTextImport(text) {
                     const start = Math.min(...nums);
                     const end = Math.max(...nums);
                     for (let i = start; i <= end; i++) {
-                        if (i % 2 === 1 && i <= 9) {
-                            periods.push(Math.floor((i - 1) / 2));
+                        if (i >= 1 && i <= 8) {
+                            periods.push(i - 1);
                         }
                     }
                 }
@@ -581,8 +609,8 @@ function parseTextImport(text) {
             const singlePeriod = line.match(/第?(\d+)[节堂]/);
             if (singlePeriod) {
                 const p = parseInt(singlePeriod[1]);
-                if (p % 2 === 1 && p <= 9) {
-                    periods.push(Math.floor((p - 1) / 2));
+                if (p >= 1 && p <= 8) {
+                    periods.push(p - 1);
                 }
             }
         }
@@ -610,30 +638,31 @@ function parseTextImport(text) {
     return courses;
 }
 
-document.getElementById('docInput').addEventListener('change', (e) => {
+document.getElementById('docInput').addEventListener('change', function(e) {
     const file = e.target.files[0];
     if (!file) return;
     
     const reader = new FileReader();
     const fileName = file.name.toLowerCase();
+    const inputEl = e.target;
     
     reader.onload = (ev) => {
         let text = '';
         
         if (fileName.endsWith('.txt')) {
             text = ev.target.result;
-            processDocumentImport(text);
+            processDocumentImport(text, inputEl);
         } else if (fileName.endsWith('.doc') || fileName.endsWith('.docx')) {
             alert('DOC/DOCX格式暂不支持，请使用TXT格式或复制内容到文字导入');
-            e.target.value = '';
+            inputEl.value = '';
             return;
         } else if (fileName.endsWith('.pdf')) {
             alert('PDF格式暂不支持，请使用TXT格式或复制内容到文字导入');
-            e.target.value = '';
+            inputEl.value = '';
             return;
         } else {
             text = ev.target.result;
-            processDocumentImport(text);
+            processDocumentImport(text, inputEl);
         }
     };
     
@@ -641,14 +670,10 @@ document.getElementById('docInput').addEventListener('change', (e) => {
         alert('读取文件失败，请重试！');
     };
     
-    if (fileName.endsWith('.txt')) {
-        reader.readAsText(file);
-    } else {
-        reader.readAsText(file);
-    }
+    reader.readAsText(file);
 });
 
-function processDocumentImport(text) {
+function processDocumentImport(text, inputEl) {
     if (!text || !text.trim()) {
         alert('文档内容为空！');
         return;
@@ -680,7 +705,7 @@ function processDocumentImport(text) {
         alert(`从文档成功导入 ${imported} 个课程！`);
     }
     
-    e.target.value = '';
+    if (inputEl) inputEl.value = '';
 }
 
 document.getElementById('jobsModal').addEventListener('click', (e) => {
