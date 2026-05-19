@@ -7,6 +7,13 @@ let timetableData = Array.from({length: WEEKDAYS.length}, () =>
 
 let jobsDatabase = {};
 
+// GitHub API 配置
+const GITHUB_REPO = 'pulan-123/period';  // 你的仓库地址
+const DATA_FILE_PATH = 'data.json';
+const USE_CORS_PROXY = true;  // 开启 CORS 代理解决跨域问题
+
+let githubToken = '';
+
 let currentDay = 0;
 let currentPeriod = 0;
 
@@ -59,10 +66,9 @@ function saveAndRefresh() {
     renderTimetable();
 }
 
-function loadData() {
+function loadLocalData() {
     const savedTimetable = localStorage.getItem('timetableData');
     const savedJobs = localStorage.getItem('jobsDatabase');
-    const savedBg = localStorage.getItem('backgroundImage');
     if (savedTimetable) {
         timetableData = JSON.parse(savedTimetable);
         if (timetableData.length !== WEEKDAYS.length || (timetableData[0] && timetableData[0].length !== PERIODS.length)) {
@@ -72,7 +78,43 @@ function loadData() {
         }
     }
     if (savedJobs) jobsDatabase = JSON.parse(savedJobs);
+}
+
+async function loadData() {
+    const savedBg = localStorage.getItem('backgroundImage');
     if (savedBg) document.body.style.backgroundImage = savedBg;
+    
+    githubToken = localStorage.getItem('githubToken') || '';
+    
+    loadLocalData();
+    renderTimetable();
+    
+    if (githubToken && GITHUB_REPO !== 'your-username/your-repo-name') {
+        try {
+            const result = await Promise.race([
+                loadFromGithub(),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('请求超时')), 8000))
+            ]);
+            renderTimetable();
+            showSyncIndicator('☁️ 已同步');
+        } catch (err) {
+            console.log('从 GitHub 加载失败，使用本地数据:', err.message);
+        }
+    }
+}
+
+function showSyncIndicator(text) {
+    let indicator = document.querySelector('.sync-indicator');
+    if (!indicator) {
+        indicator = document.createElement('span');
+        indicator.className = 'sync-indicator';
+        indicator.style.cssText = 'display:inline-flex; align-items:center; gap:4px; font-size:0.7rem; color:#34d399; margin-left:8px;';
+        const syncBtn = document.getElementById('syncToGithubBtn');
+        if (syncBtn) syncBtn.parentNode.insertBefore(indicator, syncBtn.nextSibling);
+    }
+    indicator.textContent = text;
+    indicator.style.opacity = '1';
+    setTimeout(() => { indicator.style.opacity = '0'; }, 3000);
 }
 
 function renderTimetable() {
@@ -722,3 +764,205 @@ document.querySelectorAll('button, .bg-input-label').forEach(el => {
 
 loadData();
 renderTimetable();
+
+function copyAiPrompt() {
+    const text = document.getElementById('aiPromptText').textContent;
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = document.querySelector('.copy-btn');
+        const original = btn.textContent;
+        btn.textContent = '✅ 已复制';
+        setTimeout(() => btn.textContent = original, 1500);
+    });
+}
+
+// ==================== GitHub API 同步功能 ====================
+
+function utf8ToBase64(str) {
+    if (typeof window.btoa !== 'function') {
+        throw new Error('浏览器不支持 btoa');
+    }
+    return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (match, p1) => {
+        return String.fromCharCode(parseInt(p1, 16));
+    }));
+}
+
+function base64ToUtf8(str) {
+    if (typeof window.atob !== 'function') {
+        throw new Error('浏览器不支持 atob');
+    }
+    return decodeURIComponent(atob(str).split('').map(c => {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+}
+
+function getApiUrl(path) {
+    const baseUrl = `https://api.github.com/repos/${GITHUB_REPO}/contents/${path}`;
+    if (USE_CORS_PROXY) {
+        return `https://cors-anywhere.herokuapp.com/${baseUrl}`;
+    }
+    return baseUrl;
+}
+
+async function loadFromGithub() {
+    const url = getApiUrl(DATA_FILE_PATH);
+    
+    const response = await fetch(url, {
+        headers: {
+            'Authorization': `token ${githubToken}`,
+            'Accept': 'application/vnd.github.v3+json',
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    });
+    
+    if (!response.ok) {
+        if (response.status === 404) {
+            throw new Error('data.json 文件不存在');
+        }
+        throw new Error(`HTTP ${response.status}`);
+    }
+    
+    const data = await response.json();
+    const content = base64ToUtf8(data.content.replace(/\n/g, ''));
+    const json = JSON.parse(content);
+    
+    if (json.timetableData) {
+        timetableData = json.timetableData;
+        localStorage.setItem('timetableData', JSON.stringify(timetableData));
+    }
+    if (json.jobsDatabase) {
+        jobsDatabase = json.jobsDatabase;
+        localStorage.setItem('jobsDatabase', JSON.stringify(jobsDatabase));
+    }
+    
+    console.log('已从 GitHub 加载数据');
+}
+
+let syncInProgress = false;
+
+async function syncToGithub() {
+    if (syncInProgress) return;
+    
+    if (!githubToken) {
+        document.getElementById('tokenModal').classList.add('active');
+        document.getElementById('tokenError').textContent = '';
+        return;
+    }
+    
+    if (GITHUB_REPO === 'your-username/your-repo-name') {
+        alert('请先在 script.js 中配置正确的仓库地址！');
+        return;
+    }
+    
+    syncInProgress = true;
+    const syncBtn = document.getElementById('syncToGithubBtn');
+    const originalText = syncBtn.textContent;
+    syncBtn.textContent = '⏳ 同步中...';
+    syncBtn.disabled = true;
+    
+    try {
+        const data = {
+            timetableData: timetableData,
+            jobsDatabase: jobsDatabase,
+            updatedAt: new Date().toISOString()
+        };
+        
+        let sha = null;
+        try {
+            const checkUrl = getApiUrl(DATA_FILE_PATH);
+            const response = await fetch(checkUrl, {
+                headers: {
+                    'Authorization': `token ${githubToken}`,
+                    'Accept': 'application/vnd.github.v3+json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            if (response.ok) {
+                const existing = await response.json();
+                sha = existing.sha;
+            }
+        } catch (err) {
+            console.log('文件可能不存在，将创建新文件');
+        }
+        
+        const content = utf8ToBase64(JSON.stringify(data, null, 2));
+        
+        const uploadUrl = getApiUrl(DATA_FILE_PATH);
+        const response = await fetch(uploadUrl, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `token ${githubToken}`,
+                'Accept': 'application/vnd.github.v3+json',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                message: `Update schedule data - ${new Date().toLocaleString()}`,
+                content: content,
+                sha: sha
+            })
+        });
+        
+        if (!response.ok) {
+            let errMsg = `HTTP ${response.status}`;
+            try {
+                const err = await response.json();
+                errMsg = err.message || errMsg;
+                if (err.errors) {
+                    errMsg += '\n' + err.errors.map(e => e.message).join('\n');
+                }
+            } catch (e) {}
+            throw new Error(errMsg);
+        }
+        
+        syncBtn.textContent = '✅ 已同步';
+        showSyncIndicator('☁️ 已同步');
+        
+    } catch (err) {
+        console.error('同步失败:', err);
+        const errorDetails = `同步失败：${err.message}\n\n调试信息：\n- 仓库: ${GITHUB_REPO}\n- Token: ${githubToken ? '已配置' : '未配置'}\n- 网络: 请检查网络连接\n\n请检查：\n1. Token 是否正确（需要 repo 权限）\n2. 网络能否访问 GitHub\n3. 仓库是否存在`;
+        alert(errorDetails);
+        syncBtn.textContent = '❌ 失败';
+    } finally {
+        syncInProgress = false;
+        setTimeout(() => {
+            syncBtn.textContent = originalText;
+            syncBtn.disabled = false;
+        }, 2000);
+    }
+}
+
+function closeTokenModal() {
+    document.getElementById('tokenModal').classList.remove('active');
+    document.getElementById('tokenInput').value = '';
+    document.getElementById('tokenError').textContent = '';
+}
+
+function saveToken() {
+    const token = document.getElementById('tokenInput').value.trim();
+    const errorEl = document.getElementById('tokenError');
+    
+    if (!token) {
+        errorEl.textContent = '请输入 Token';
+        return;
+    }
+    
+    if (token.length < 40) {
+        errorEl.textContent = 'Token 格式不正确（至少40位）';
+        return;
+    }
+    
+    githubToken = token;
+    localStorage.setItem('githubToken', token);
+    closeTokenModal();
+    
+    syncToGithub();
+}
+
+document.getElementById('tokenModal').addEventListener('click', (e) => {
+    if (e.target.classList.contains('modal-overlay')) closeTokenModal();
+});
+
+document.getElementById('tokenInput').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') saveToken();
+});
+
+document.getElementById('syncToGithubBtn').addEventListener('click', syncToGithub);
