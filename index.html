@@ -39,6 +39,11 @@
             <button id="resetDataBtn" class="btn-outline">⟳ 重置</button>
             <button id="clearAllCoursesBtn" class="btn-outline">🗑 清空课程</button>
             <button id="clearAllJobsBtn" class="btn-outline">🗑 清空作业</button>
+            
+            <div class="btn-group">
+                <button id="syncToGithubBtn" class="btn-outline" title="同步到 GitHub">☁️ 同步</button>
+                <input type="password" id="githubToken" placeholder="GitHub Token" style="display:none;">
+            </div>
         </div>
     </div>
 
@@ -50,7 +55,10 @@
     </div>
     <div class="footer-note">
         💡 提示：双击课程格子可编辑课程名称与地点（清空名称=删除课程并移除相关作业）<br>
-        📌 每个课程右侧"作业"按钮可查看/添加/完成该课作业，作业支持打勾标记完成和删除。
+        📌 每个课程右侧"作业"按钮可查看/添加/完成该课作业，作业支持打勾标记完成和删除。<br>
+        🤖 <b>AI导入课表</b>：将这段话发给AI，并附上课表截图——<span class="copyable-text" id="aiPromptText">"请认真识别图片，把所有课程写出来，不要漏，按照我给的格式，周数，节数，课程，教室"</span> <button class="copy-btn" onclick="copyAiPrompt()">📋 复制</button>，然后把AI生成的结果粘贴到「📝 文字导入」即可。<br>
+        ☁️ <b>GitHub同步</b>：点击「☁️ 同步」按钮可将课表数据保存到 GitHub 仓库，换设备也能恢复！<br>
+        🔑 Token 需要 <code>repo</code> 权限：在 GitHub 设置 → Developer settings → Personal access tokens → 勾选 repo 下所有权限。
     </div>
 </div>
 
@@ -95,6 +103,27 @@
                 <button class="small-btn" onclick="importTextSchedule()">导入</button>
             </div>
             <p class="tip-text" style="margin-top: 16px;">💡 支持常见课表格式，自动识别星期、节数、课程名和教室</p>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="tokenModal">
+    <div class="modal-container" style="max-width: 480px;">
+        <div class="modal-header">
+            <h3>🔑 GitHub Token 设置</h3>
+            <button class="close-modal" onclick="closeTokenModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="auth-field">
+                <label>Personal Access Token</label>
+                <input type="password" id="tokenInput" placeholder="请输入 GitHub Personal Access Token">
+            </div>
+            <div id="tokenError" class="auth-error"></div>
+            <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px;">
+                <button class="btn-secondary" onclick="closeTokenModal()">取消</button>
+                <button class="small-btn" onclick="saveToken()">保存</button>
+            </div>
+            <p class="tip-text" style="margin-top: 16px;">💡 Token 在 GitHub 设置中生成，需要 repo 权限</p>
         </div>
     </div>
 </div>
